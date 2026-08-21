@@ -1,44 +1,26 @@
-# AMD-BC250-Display-Status
+# 🌌 STELLAR — BC250 Thermal Monitor
 
-# ⭐ STELLAR — Thermal Monitor
+Monitor térmico para **CPU e GPU** utilizando um **ESP32-C3 + ESP32-2424S012 (GC9A01)** conectado via USB a um computador com **CachyOS/Linux**.
 
-Monitoramento térmico em tempo real para o projeto **STELLAR**, utilizando um **ESP32-C3 + display GC9A01 240×240**, conectado via USB a um computador Linux.
-
-O sistema coleta a temperatura da **CPU e GPU** no CachyOS e envia os dados continuamente para o ESP32 através da USB Serial.
-
-Enquanto o sistema operacional ainda não iniciou ou o serviço ainda não está enviando dados, o ESP32 mantém a tela de inicialização do STELLAR em loop.
-
-Assim que dados válidos são recebidos, o display muda automaticamente para a interface térmica.
+O ESP32 possui uma interface gráfica própria com tela de inicialização, estrelas e cometa. Enquanto o computador ainda não estiver enviando dados, a tela permanece na inicialização. Assim que o serviço do Linux começa a enviar temperaturas válidas, o display muda automaticamente para o monitor térmico.
 
 ---
 
-## 📸 Visão geral
+## ✨ Funcionalidades
 
-```text
-┌──────────────────────────────┐
-│          CACHYOS             │
-│                              │
-│        lm_sensors            │
-│             │                │
-│             ▼                │
-│    stellar_monitor.py        │
-│             │                │
-└─────────────┼────────────────┘
-              │
-              │ USB Serial
-              │ 115200 baud
-              ▼
-┌──────────────────────────────┐
-│          ESP32-C3             │
-│                              │
-│     Recepção Serial USB      │
-│             │                │
-│             ▼                │
-│        GC9A01 240×240        │
-│                              │
-│       STELLAR DISPLAY        │
-└──────────────────────────────┘
-```
+- 🌌 Tela de inicialização STELLAR
+- ☄️ Cometa animado
+- ⭐ Campo de estrelas
+- 🖥️ Monitoramento da CPU
+- 🎮 Monitoramento da GPU AMD
+- 🌡️ Atualização a cada 1 segundo
+- 🔌 Comunicação via USB Serial
+- 🚀 Inicialização automática com `systemd`
+- 🔄 Reinício automático do monitor em caso de falha
+- 🔍 Detecção automática do ESP32
+- 📡 Reconexão automática caso o USB seja desconectado
+- 💾 Funcionamento local, sem necessidade de Internet
+- 🎨 Interface com cores baseadas na temperatura
 
 ---
 
@@ -47,14 +29,14 @@ Assim que dados válidos são recebidos, o display muda automaticamente para a i
 ```text
 STELLAR/
 │
-├── README.md
+├── arduino/
+│   └── stellar_display.ino
 │
-├── CachyOS/
+├── cachyos/
 │   ├── stellar_monitor.py
-│   └── stellar-monitor.service
+│   └── instalar_stellar.sh
 │
-└── ESP32/
-    └── STELLAR.ino
+└── README.md
 ```
 
 ---
@@ -63,63 +45,171 @@ STELLAR/
 
 ## ESP32
 
+O projeto utiliza:
+
 - ESP32-C3
 - ESP32-2424S012
 - Display GC9A01
-- Resolução 240×240
+- Resolução 240 × 240
 - Comunicação USB Serial
 
-## Computador
-
-O sistema foi desenvolvido e testado no:
-
-- CachyOS
-- CPU AMD
-- GPU AMD
-- Linux com systemd
-
----
-
-# 📺 Display
-
-O display utilizado possui resolução:
-
-```text
-240 × 240 pixels
-```
-
-## Mapeamento dos pinos
-
-| Função | GPIO |
-|---|---:|
-| MOSI | 7 |
-| SCLK | 6 |
-| CS | 10 |
-| DC | 2 |
-| RST | -1 |
-| Backlight | 3 |
-
-O projeto utiliza:
+### Pinagem
 
 ```cpp
-#include <Arduino.h>
-#include <U8g2lib.h>
-#include <Arduino_GFX_Library.h>
+#define TFT_MOSI 7
+#define TFT_SCLK 6
+#define TFT_CS   10
+#define TFT_DC   2
+#define TFT_RST  -1
+#define TFT_BL   3
 ```
 
 ---
 
-# 💻 Parte 1 — Configuração do CachyOS
+# 💻 Software
 
-## 1. Atualizar o sistema
+O computador precisa possuir:
+
+- CachyOS ou outra distribuição Linux compatível
+- Python 3
+- PySerial
+- `lm_sensors`
+- systemd
+- USB
+
+---
+
+# 🔄 Como funciona
+
+O projeto possui duas partes principais.
+
+## ESP32
+
+O ESP32 é responsável por toda a interface gráfica.
+
+Ao ligar, ele inicia a animação:
+
+```text
+STELLAR
+```
+
+com:
+
+- estrelas;
+- cometa;
+- efeito de fade;
+- animação de inicialização.
+
+Enquanto nenhum dado válido for recebido pela USB, a tela permanece nessa animação.
+
+---
+
+## CachyOS
+
+O computador executa:
+
+```text
+stellar_monitor.py
+```
+
+O programa coleta:
+
+```text
+CPU
+GPU
+```
+
+e envia os dados ao ESP32 através da USB.
+
+O pacote enviado possui o formato:
+
+```text
+CPU:46.6;GPU:44.0
+```
+
+Cada pacote termina com uma quebra de linha.
+
+Os dados são enviados aproximadamente a cada:
+
+```text
+1 segundo
+```
+
+---
+
+# 🔌 Fluxo do sistema
+
+```text
+┌──────────────────────┐
+│       ESP32-C3       │
+│                      │
+│  Tela STELLAR        │
+│  Estrelas            │
+│  Cometa              │
+└──────────┬───────────┘
+           │
+           │ USB
+           │ Serial
+           ▼
+┌──────────────────────┐
+│       CachyOS        │
+│                      │
+│ stellar_monitor.py   │
+└──────────┬───────────┘
+           │
+       ┌───┴───┐
+       ▼       ▼
+      CPU     GPU
+       │       │
+       └───┬───┘
+           │
+           ▼
+      USB Serial
+           │
+           ▼
+        ESP32
+           │
+           ▼
+   Tela de temperatura
+```
+
+---
+
+# 🚀 Instalação no CachyOS
+
+## 1. Conectar o ESP32
+
+Conecte o ESP32 ao computador através do USB.
+
+Verifique se foi detectado:
 
 ```bash
-sudo pacman -Syu
+ls /dev/ttyACM*
+```
+
+ou:
+
+```bash
+ls /dev/ttyUSB*
+```
+
+Exemplo:
+
+```text
+/dev/ttyACM0
+```
+
+ou:
+
+```text
+/dev/ttyACM1
 ```
 
 ---
 
-## 2. Verificar Python
+# 2. Verificar Python
+
+Execute:
 
 ```bash
 python --version
@@ -133,13 +223,37 @@ Python 3.14.6
 
 ---
 
-## 3. Instalar lm_sensors
+# 3. Verificar PySerial
+
+Execute:
+
+```bash
+python -c "import serial; print('pyserial OK')"
+```
+
+Resultado esperado:
+
+```text
+pyserial OK
+```
+
+Caso não esteja instalado:
+
+```bash
+sudo pacman -S python-pyserial
+```
+
+---
+
+# 4. Instalar sensores
+
+Instale o pacote:
 
 ```bash
 sudo pacman -S lm_sensors
 ```
 
-Teste:
+Depois teste:
 
 ```bash
 sensors
@@ -157,235 +271,119 @@ Adapter: PCI adapter
 edge: +42.0°C
 ```
 
-O monitor utiliza:
-
-### CPU
-
-```text
-k10temp
-Tctl
-```
-
-### GPU AMD
-
-```text
-amdgpu
-edge
-```
+O script utiliza esses dados para identificar as temperaturas.
 
 ---
 
-# 🔌 4. Conectar o ESP32
+# 5. Configurar acesso USB
 
-Conecte o ESP32 ao computador através do USB.
+O usuário precisa ter permissão para acessar a porta serial.
 
-Verifique a porta:
-
-```bash
-ls /dev/ttyACM*
-```
-
-Normalmente será:
-
-```text
-/dev/ttyACM0
-```
-
-ou:
-
-```text
-/dev/ttyACM1
-```
-
-Também é possível verificar o dispositivo USB:
-
-```bash
-lsusb
-```
-
----
-
-# 🔐 5. Permissões da porta USB
-
-Verifique os grupos do usuário:
-
-```bash
-groups
-```
-
-Caso `uucp` não esteja presente:
+Adicione o usuário ao grupo `uucp`:
 
 ```bash
 sudo usermod -aG uucp $USER
 ```
 
-Também pode ser necessário:
+Em sistemas que utilizam `dialout`, utilize:
 
 ```bash
 sudo usermod -aG dialout $USER
 ```
 
-Depois reinicie o computador:
+Depois faça **logout/login** ou reinicie o computador.
 
-```bash
-reboot
-```
-
-Após reiniciar:
+Verifique:
 
 ```bash
 groups
 ```
 
-O grupo deverá aparecer na lista.
+Deve aparecer `uucp` ou `dialout`.
 
 ---
 
-# 🐍 6. Instalar PySerial
+# 🐍 Monitor Python
 
-Instale:
-
-```bash
-python -m pip install pyserial
-```
-
-Teste:
-
-```bash
-python -c "import serial; print('pyserial OK')"
-```
-
-Resultado esperado:
+O arquivo:
 
 ```text
-pyserial OK
+cachyos/stellar_monitor.py
 ```
+
+é responsável por:
+
+1. Detectar o ESP32.
+2. Conectar através da USB.
+3. Ler a temperatura da CPU.
+4. Ler a temperatura da GPU AMD.
+5. Enviar os valores ao ESP32.
+6. Detectar desconexões.
+7. Reconectar automaticamente.
+8. Continuar executando continuamente.
 
 ---
 
-# 📄 7. Criar o monitor Python
+# ▶️ Teste manual
 
-Crie:
-
-```bash
-nano ~/stellar_monitor.py
-```
-
-O arquivo deverá ficar em:
-
-```text
-/home/SEU_USUARIO/stellar_monitor.py
-```
-
-Exemplo:
-
-```text
-/home/isaacalvex/stellar_monitor.py
-```
-
-O programa possui as seguintes funções:
-
-- Detectar o ESP32 automaticamente
-- Detectar `/dev/ttyACM*`
-- Detectar `/dev/ttyUSB*`
-- Ler temperatura da CPU
-- Ler temperatura da GPU AMD
-- Enviar os dados pela USB
-- Reconectar automaticamente
-- Continuar funcionando caso a conexão USB seja interrompida
-- Enviar os dados aproximadamente a cada 1 segundo
-
----
-
-# 📡 Protocolo de comunicação
-
-A comunicação utiliza:
-
-```text
-USB Serial
-```
-
-Baud rate:
-
-```text
-115200
-```
-
-O CachyOS envia os dados neste formato:
-
-```text
-CPU:46.6;GPU:44.0
-```
-
-Cada pacote termina com:
-
-```text
-\n
-```
-
-Portanto:
-
-```text
-CPU:46.6;GPU:44.0\n
-```
-
----
-
-# 🧪 8. Testar o monitor manualmente
-
-Execute:
+Antes de criar o serviço, execute:
 
 ```bash
 python ~/stellar_monitor.py
 ```
 
-Resultado esperado:
+O resultado esperado:
 
 ```text
 ==================================================
         STELLAR THERMAL MONITOR
         CachyOS -> ESP32 USB
 ==================================================
+
 Conectando ao ESP32 em /dev/ttyACM0...
 ESP32 conectado!
-CPU:  46.6 °C | GPU:  44.0 °C
+
+CPU: 46.6 °C | GPU: 44.0 °C
 ```
 
-A tela do ESP32 deverá receber os dados e mudar para a interface térmica.
+Os valores devem continuar sendo atualizados.
 
-Para interromper o teste:
+Para interromper:
 
 ```text
-CTRL + C
+Ctrl+C
 ```
 
 ---
 
-# ⚙️ 9. Criar serviço systemd
+# ⚙️ Serviço systemd
 
-Para que o monitor funcione continuamente, não é necessário deixar um terminal aberto.
+Depois de confirmar que o script funciona manualmente, ele pode ser executado permanentemente através do `systemd`.
 
-O projeto utiliza um serviço **systemd do usuário**.
+O arquivo do serviço fica em:
 
-Crie a pasta:
+```text
+~/.config/systemd/user/stellar-monitor.service
+```
+
+Criar a pasta:
 
 ```bash
 mkdir -p ~/.config/systemd/user
 ```
 
-Crie o arquivo:
+Criar o serviço:
 
 ```bash
 nano ~/.config/systemd/user/stellar-monitor.service
 ```
 
-Utilize:
+Exemplo:
 
 ```ini
 [Unit]
 Description=STELLAR Thermal Monitor - CachyOS to ESP32
-After=graphical-session.target
-Wants=graphical-session.target
+After=default.target
 
 [Service]
 Type=simple
@@ -393,117 +391,63 @@ ExecStart=/usr/bin/python /home/SEU_USUARIO/stellar_monitor.py
 Restart=always
 RestartSec=2
 
-Environment=PYTHONUNBUFFERED=1
-
 [Install]
 WantedBy=default.target
 ```
 
-Substitua:
-
-```text
-SEU_USUARIO
-```
-
-pelo usuário do computador.
-
-Exemplo:
-
-```ini
-ExecStart=/usr/bin/python /home/isaacalvex/stellar_monitor.py
-```
+> Substitua `SEU_USUARIO` pelo seu usuário do Linux.
 
 ---
 
-# ▶️ 10. Ativar o serviço
+# ▶️ Ativar o serviço
 
-Depois de salvar o arquivo:
+Recarregar o systemd:
 
 ```bash
 systemctl --user daemon-reload
 ```
 
-Ative a inicialização automática:
+Ativar no login:
 
 ```bash
 systemctl --user enable stellar-monitor.service
 ```
 
-Inicie:
+Iniciar:
 
 ```bash
 systemctl --user start stellar-monitor.service
 ```
 
-Verifique:
+---
+
+# 🔎 Verificar o serviço
 
 ```bash
 systemctl --user status stellar-monitor.service
 ```
 
-O resultado esperado é:
+Resultado esperado:
 
 ```text
-Active: active (running)
+● stellar-monitor.service
+     Loaded: loaded
+     Active: active (running)
 ```
 
 ---
 
-# 🔄 11. Execução contínua
+# 📜 Ver logs
 
-O serviço possui:
-
-```ini
-Restart=always
-```
-
-Caso o Python seja encerrado inesperadamente, o systemd irá iniciá-lo novamente.
-
-Também existe:
-
-```ini
-RestartSec=2
-```
-
-Assim, o sistema aguarda aproximadamente 2 segundos antes de tentar iniciar novamente.
-
-O monitor também tenta reconectar automaticamente ao ESP32 caso a porta USB desapareça.
-
----
-
-# 📜 12. Ver logs
-
-Para acompanhar o monitor em tempo real:
+Para acompanhar os logs em tempo real:
 
 ```bash
 journalctl --user -u stellar-monitor.service -f
 ```
 
-Para visualizar os últimos 50 registros:
-
-```bash
-journalctl --user -u stellar-monitor.service -n 50
-```
-
 ---
 
-# 🛑 13. Parar o serviço
-
-```bash
-systemctl --user stop stellar-monitor.service
-```
-
----
-
-# ▶️ 14. Iniciar novamente
-
-```bash
-systemctl --user start stellar-monitor.service
-```
-
----
-
-# 🔄 15. Reiniciar
+# 🔄 Reiniciar
 
 ```bash
 systemctl --user restart stellar-monitor.service
@@ -511,7 +455,15 @@ systemctl --user restart stellar-monitor.service
 
 ---
 
-# ❌ 16. Desativar inicialização automática
+# 🛑 Parar
+
+```bash
+systemctl --user stop stellar-monitor.service
+```
+
+---
+
+# 🚫 Desativar inicialização automática
 
 ```bash
 systemctl --user disable stellar-monitor.service
@@ -519,122 +471,54 @@ systemctl --user disable stellar-monitor.service
 
 ---
 
-# 🖥️ Parte 2 — ESP32
+# 🛡️ Funcionamento contínuo
 
-O ESP32 possui duas funções principais:
+O serviço utiliza:
 
-1. Controlar a interface visual.
-2. Receber as temperaturas enviadas pelo CachyOS.
+```ini
+Restart=always
+RestartSec=2
+```
 
-O firmware é responsável por:
+Isso significa que, caso o Python seja encerrado inesperadamente, o `systemd` tentará iniciá-lo novamente.
 
-- Inicializar o GC9A01
-- Exibir a animação STELLAR
-- Manter a animação enquanto não houver dados
-- Receber dados pela Serial USB
-- Validar os dados recebidos
-- Exibir CPU
-- Exibir GPU
-- Atualizar a interface térmica
-
----
-
-# 🚀 Estado inicial
-
-Ao ligar o ESP32, a tela **não assume temperaturas padrão como dados reais**.
-
-Enquanto nenhum pacote válido for recebido, a tela permanece na inicialização:
+Fluxo:
 
 ```text
-┌────────────────────────┐
-│                        │
-│        ☄️              │
-│                        │
-│       STELLAR          │
-│                        │
-└────────────────────────┘
+Python encerra
+      │
+      ▼
+systemd detecta
+      │
+      ▼
+aguarda 2 segundos
+      │
+      ▼
+Python reinicia
+      │
+      ▼
+ESP32 reconecta
 ```
-
-A animação fica em loop.
 
 ---
 
-# 🟢 Ativação da tela térmica
+# 🔌 Reconexão USB
 
-Quando o CachyOS inicia o serviço e começa a enviar:
+O monitor procura automaticamente por portas:
 
 ```text
-CPU:46.6;GPU:44.0
+/dev/ttyACM*
 ```
 
-o ESP32 reconhece os dados e ativa a tela térmica.
-
-Isso evita que o display mostre temperaturas antigas ou simuladas antes do computador começar a enviar informações.
-
----
-
-# 🌡️ Interface térmica
-
-A interface exibe:
+e:
 
 ```text
-CPU
-47°
-
-──────────────
-
-GPU
-44°
+/dev/ttyUSB*
 ```
 
-Os valores são atualizados continuamente.
+Portanto, não é obrigatório que o ESP32 esteja sempre em `/dev/ttyACM0`.
 
----
-
-# 🎨 Sistema de cores
-
-As temperaturas utilizam transição gradual:
-
-| Temperatura | Cor |
-|---:|---|
-| ≤ 30 °C | 🔵 Azul |
-| 30–45 °C | Azul → Verde |
-| 45–60 °C | Verde → Laranja |
-| 60–75 °C | Laranja → Vermelho |
-| > 75 °C | 🔴 Vermelho |
-
----
-
-# 📚 Bibliotecas Arduino
-
-O firmware utiliza:
-
-```cpp
-#include <Arduino.h>
-#include <U8g2lib.h>
-#include <Arduino_GFX_Library.h>
-```
-
-Instale na Arduino IDE:
-
-```text
-U8g2
-Arduino_GFX
-```
-
----
-
-# 🔧 Configuração da Arduino IDE
-
-Selecione a placa correspondente ao ESP32-C3.
-
-Normalmente:
-
-```text
-ESP32C3 Dev Module
-```
-
-Selecione a porta USB correspondente:
+Exemplo:
 
 ```text
 /dev/ttyACM0
@@ -646,204 +530,271 @@ ou:
 /dev/ttyACM1
 ```
 
-Compile e faça o upload do firmware.
+O monitor tenta localizar automaticamente a porta disponível.
 
 ---
 
-# ⚠️ Porta USB ocupada
+# 🌡️ Temperaturas
 
-Durante o upload, o serviço Python pode estar utilizando a mesma porta USB.
+O sistema monitora:
 
-Se aparecer:
+## CPU
+
+A temperatura da CPU é obtida através do `lm_sensors`.
+
+Exemplo:
 
 ```text
-Could not open /dev/ttyACM0
+Tctl: +46.6°C
 ```
 
-pare temporariamente o serviço:
+## GPU
 
-```bash
-systemctl --user stop stellar-monitor.service
+Para GPUs AMD, o script procura informações do:
+
+```text
+amdgpu
 ```
 
-Faça o upload pela Arduino IDE.
+Exemplo:
 
-Depois reative:
-
-```bash
-systemctl --user start stellar-monitor.service
+```text
+edge: +44.0°C
 ```
 
 ---
 
-# ⚠️ Permission denied
+# 🎨 Cores da temperatura
 
-Se aparecer:
+A interface utiliza uma transição de cores:
+
+| Temperatura | Cor |
+|-------------|-----|
+| ≤ 30 °C | 🔵 Azul |
+| 30–45 °C | 🔵 Azul → 🟢 Verde |
+| 45–60 °C | 🟢 Verde → 🟠 Laranja |
+| 60–75 °C | 🟠 Laranja → 🔴 Vermelho |
+| > 75 °C | 🔴 Vermelho |
+
+---
+
+# 🌌 Tela de inicialização
+
+Ao ligar o ESP32:
 
 ```text
-Permission denied: '/dev/ttyACM0'
+┌────────────────────────┐
+│                        │
+│          ☄️            │
+│                        │
+│       STELLAR          │
+│                        │
+│                        │
+└────────────────────────┘
 ```
 
-verifique:
+A animação continua em loop enquanto o ESP32 não recebe dados válidos.
 
-```bash
-groups
+---
+
+# 📡 Recebimento dos dados
+
+O ESP32 recebe pacotes no formato:
+
+```text
+CPU:46.6;GPU:44.0
 ```
 
-Adicione:
+Após receber e validar os dados, ele muda para a tela térmica.
 
-```bash
-sudo usermod -aG uucp $USER
+Exemplo:
+
+```text
+┌────────────────────────┐
+│          CPU           │
+│                        │
+│          47°           │
+│                        │
+│────────────────────────│
+│          GPU           │
+│                        │
+│          44°           │
+└────────────────────────┘
 ```
 
-e:
+---
 
-```bash
-sudo usermod -aG dialout $USER
+# ⏳ Estado inicial
+
+Uma característica importante do projeto é que o ESP32 **não utiliza temperaturas simuladas na inicialização**.
+
+O comportamento é:
+
+```text
+ESP32 liga
+     │
+     ▼
+Tela STELLAR
+     │
+     ▼
+Aguarda dados USB
+     │
+     ├── Não recebeu → continua STELLAR
+     │
+     └── Recebeu dados válidos
+                  │
+                  ▼
+          Tela de temperatura
 ```
 
-Reinicie:
+Isso evita que a tela mostre valores antigos ou fictícios antes do sistema operacional iniciar.
 
-```bash
-reboot
+---
+
+# 🖥️ Instalação do Arduino IDE
+
+Para programar o ESP32, instale o Arduino IDE.
+
+Depois instale o suporte para placas ESP32 através do gerenciador de placas.
+
+Selecione uma placa compatível com o ESP32-C3.
+
+Exemplo:
+
+```text
+ESP32C3 Dev Module
+```
+
+Selecione a porta USB:
+
+```text
+/dev/ttyACM0
+```
+
+ou:
+
+```text
+/dev/ttyACM1
+```
+
+Depois compile e envie:
+
+```text
+arduino/stellar_display.ino
+```
+
+---
+
+# 📚 Bibliotecas Arduino
+
+O projeto utiliza:
+
+```cpp
+#include <Arduino.h>
+#include <U8g2lib.h>
+#include <Arduino_GFX_Library.h>
+```
+
+Bibliotecas necessárias:
+
+- U8g2
+- Arduino_GFX_Library
+
+---
+
+# 📺 Display GC9A01
+
+Configuração:
+
+```text
+Resolução: 240 × 240
+Controlador: GC9A01
+```
+
+No código:
+
+```cpp
+#define SCREEN_W 240
+#define SCREEN_H 240
+```
+
+Rotação:
+
+```cpp
+tft->setRotation(3);
+```
+
+---
+
+# 📡 Comunicação serial
+
+Baudrate utilizado:
+
+```text
+115200
+```
+
+Exemplo de pacote:
+
+```text
+CPU:46.6;GPU:44.0
+```
+
+Atualização:
+
+```text
+1 segundo
 ```
 
 ---
 
 # 🧪 Teste completo
 
-Depois de configurar tudo:
+Depois de instalar tudo:
 
-### 1. Verificar ESP32
+### 1. Ligue o ESP32
 
-```bash
-ls /dev/ttyACM*
+A tela deverá iniciar com:
+
+```text
+STELLAR
 ```
 
-### 2. Verificar sensores
+### 2. Ligue o computador
 
-```bash
-sensors
-```
+O CachyOS inicia.
 
-### 3. Testar Python
+### 3. O systemd inicia automaticamente
 
-```bash
-python ~/stellar_monitor.py
-```
-
-### 4. Verificar serviço
+Verifique:
 
 ```bash
 systemctl --user status stellar-monitor.service
 ```
 
-### 5. Ver logs
+### 4. O monitor encontra o ESP32
 
-```bash
-journalctl --user -u stellar-monitor.service -f
+```text
+ESP32 conectado!
 ```
 
-### 6. Reiniciar computador
+### 5. As temperaturas começam a ser enviadas
 
-```bash
-reboot
+```text
+CPU: 46.6 °C | GPU: 44.0 °C
 ```
+
+### 6. O ESP32 muda de tela
+
+A tela STELLAR é substituída pelo monitor térmico.
 
 ---
 
-# 🔄 Fluxo completo
-
-O funcionamento após a instalação é:
-
-```text
-PC LIGADO
-    │
-    ▼
-ESP32 inicia
-    │
-    ▼
-Tela STELLAR em loop
-    │
-    ▼
-CachyOS inicia
-    │
-    ▼
-systemd inicia
-    │
-    ▼
-stellar_monitor.py
-    │
-    ▼
-Detecta CPU/GPU
-    │
-    ▼
-Abre USB Serial
-    │
-    ▼
-Envia dados
-    │
-    ▼
-ESP32 recebe
-    │
-    ▼
-Valida dados
-    │
-    ▼
-Ativa tela térmica
-    │
-    ▼
-Atualiza aproximadamente
-a cada 1 segundo
-```
-
----
-
-# 🔌 Reconexão
-
-O sistema foi desenvolvido para tolerar interrupções temporárias.
-
-Se o ESP32 for desconectado:
-
-```text
-ESP32 desconectado
-        │
-        ▼
-Python detecta erro
-        │
-        ▼
-Fecha porta
-        │
-        ▼
-Procura ESP32 novamente
-        │
-        ▼
-Reconecta
-        │
-        ▼
-Continua enviando
-```
-
-Se o processo Python for encerrado:
-
-```text
-Python encerrado
-       │
-       ▼
-systemd detecta
-       │
-       ▼
-aguarda 2 segundos
-       │
-       ▼
-Python reinicia
-```
-
----
-
-# 🛠️ Diagnóstico rápido
+# 🔧 Diagnóstico
 
 ## ESP32 não aparece
+
+Execute:
 
 ```bash
 ls /dev/ttyACM*
@@ -855,23 +806,27 @@ Depois:
 lsusb
 ```
 
-Verifique também o cabo USB.
+Desconecte e reconecte o ESP32.
 
 ---
 
-## Python não conecta
+## Permission denied
+
+Se aparecer:
+
+```text
+Permission denied: '/dev/ttyACM0'
+```
+
+execute:
 
 ```bash
-python ~/stellar_monitor.py
+sudo usermod -aG uucp $USER
 ```
+
+Depois faça logout/login ou reinicie.
 
 Verifique:
-
-```bash
-ls -l /dev/ttyACM*
-```
-
-E:
 
 ```bash
 groups
@@ -880,6 +835,8 @@ groups
 ---
 
 ## Serviço não iniciou
+
+Execute:
 
 ```bash
 systemctl --user status stellar-monitor.service
@@ -893,215 +850,182 @@ journalctl --user -u stellar-monitor.service -n 100
 
 ---
 
-## CPU não aparece
-
-Execute:
+## Monitorar logs em tempo real
 
 ```bash
-sensors
-```
-
-Procure:
-
-```text
-k10temp
-```
-
-e:
-
-```text
-Tctl
+journalctl --user -u stellar-monitor.service -f
 ```
 
 ---
 
-## GPU não aparece
+# 📦 Instalação automática
 
-Execute:
+O projeto possui um instalador:
+
+```text
+cachyos/instalar_stellar.sh
+```
+
+O objetivo é automatizar toda a configuração.
+
+O usuário poderá executar:
 
 ```bash
-sensors
+chmod +x instalar_stellar.sh
 ```
 
-Procure:
+e depois:
 
-```text
-amdgpu
+```bash
+./instalar_stellar.sh
 ```
 
-e:
+O instalador poderá realizar:
 
 ```text
-edge
+┌─────────────────────────────────┐
+│       instalar_stellar.sh       │
+├─────────────────────────────────┤
+│                                 │
+│ ✓ Verificar sistema             │
+│ ✓ Verificar Python              │
+│ ✓ Instalar dependências         │
+│ ✓ Configurar sensores           │
+│ ✓ Configurar permissões USB     │
+│ ✓ Detectar ESP32                │
+│ ✓ Instalar monitor Python       │
+│ ✓ Criar serviço systemd         │
+│ ✓ Ativar serviço                │
+│ ✓ Iniciar monitor               │
+│ ✓ Mostrar status                │
+│                                 │
+└─────────────────────────────────┘
 ```
 
 ---
 
-# 📦 Instalação rápida em uma nova máquina
+# 🔐 Funcionamento local
 
-Após instalar o CachyOS, execute:
+O STELLAR não depende de serviços externos.
 
-```bash
-sudo pacman -Syu
-```
+Não são necessários:
 
-```bash
-sudo pacman -S lm_sensors
-```
+- APIs externas;
+- servidores;
+- banco de dados;
+- serviços em nuvem;
+- conexão com a Internet.
 
-```bash
-python --version
-```
-
-```bash
-python -m pip install pyserial
-```
-
-```bash
-sudo usermod -aG uucp $USER
-```
-
-```bash
-sudo usermod -aG dialout $USER
-```
-
-Reinicie:
-
-```bash
-reboot
-```
-
-Depois:
-
-```bash
-mkdir -p ~/.config/systemd/user
-```
-
-Coloque:
+A comunicação acontece diretamente através do USB:
 
 ```text
-stellar_monitor.py
-```
-
-em:
-
-```text
-/home/SEU_USUARIO/
-```
-
-E:
-
-```text
-stellar-monitor.service
-```
-
-em:
-
-```text
-/home/SEU_USUARIO/.config/systemd/user/
-```
-
-Depois:
-
-```bash
-systemctl --user daemon-reload
-```
-
-```bash
-systemctl --user enable stellar-monitor.service
-```
-
-```bash
-systemctl --user start stellar-monitor.service
-```
-
-Verifique:
-
-```bash
-systemctl --user status stellar-monitor.service
-```
-
----
-
-# 📊 Especificações
-
-| Item | Informação |
-|---|---|
-| MCU | ESP32-C3 |
-| Display | GC9A01 |
-| Resolução | 240×240 |
-| Comunicação | USB Serial |
-| Baud Rate | 115200 |
-| Atualização | ~1 segundo |
-| Sistema operacional | CachyOS |
-| CPU monitorada | AMD |
-| GPU monitorada | AMD |
-| Backend | Python |
-| Comunicação Python | PySerial |
-| Serviço | systemd |
-| Biblioteca gráfica | Arduino_GFX |
-| Biblioteca de fontes | U8g2 |
-
----
-
-# 🧩 Tecnologias
-
-```text
-C++
-Arduino
-ESP32-C3
-Arduino_GFX
-U8g2
+CachyOS
+   │
+   │ USB Serial
+   ▼
+ESP32
+   │
+   ▼
 GC9A01
-Python
-PySerial
-lm_sensors
-systemd
-Linux
-CachyOS
-USB Serial
 ```
 
 ---
 
-# ⭐ STELLAR
-
-Projeto desenvolvido para criar um monitor térmico dedicado e independente da interface principal do computador.
-
-O sistema combina:
+# 🏗️ Arquitetura do projeto
 
 ```text
-CachyOS
-   │
-   ├── lm_sensors
-   │
-   ├── Python
-   │
-   ├── PySerial
-   │
-   └── systemd
-          │
-          │ USB
-          ▼
-       ESP32-C3
-          │
-          ▼
-       GC9A01
-          │
-          ▼
-    STELLAR Thermal
+                         STELLAR
+                            │
+             ┌──────────────┴──────────────┐
+             │                             │
+             ▼                             ▼
+          Arduino                        CachyOS
+             │                             │
+             ▼                             ▼
+          ESP32-C3                  stellar_monitor.py
+             │                             │
+             ▼                       ┌─────┴─────┐
+          GC9A01                     │           │
+             │                      CPU         GPU
+             │                       │           │
+             │                       └─────┬─────┘
+             │                             │
+             └──────── USB Serial ◄────────┘
 ```
-
-O objetivo é fornecer **monitoramento térmico contínuo**, com uma interface visual dedicada e inicialização independente do sistema operacional.
 
 ---
 
-## 📜 Licença
+# 📂 Arquivos
 
-Defina aqui a licença do projeto, por exemplo:
+## `arduino/stellar_display.ino`
+
+Código completo do ESP32.
+
+Responsável por:
+
+- inicialização;
+- interface;
+- estrelas;
+- cometa;
+- STELLAR;
+- temperaturas;
+- cores;
+- comunicação USB;
+- atualização do display.
+
+---
+
+## `cachyos/stellar_monitor.py`
+
+Código completo do monitor Linux.
+
+Responsável por:
+
+- detectar o ESP32;
+- ler CPU;
+- ler GPU;
+- enviar dados;
+- reconectar USB;
+- funcionamento contínuo.
+
+---
+
+## `cachyos/instalar_stellar.sh`
+
+Instalador automático.
+
+Responsável por preparar uma nova máquina para executar o monitor.
+
+---
+
+# 🎯 Objetivo do projeto
+
+O STELLAR foi desenvolvido para funcionar como um **painel térmico dedicado para computadores**, utilizando um ESP32-C3 e display GC9A01.
+
+O projeto prioriza:
+
+- simplicidade;
+- funcionamento local;
+- comunicação USB;
+- inicialização automática;
+- recuperação automática;
+- baixa dependência externa;
+- fácil instalação;
+- fácil reprodução em outra máquina.
+
+---
+
+# 🌌 STELLAR
 
 ```text
-MIT License
+███████╗████████╗███████╗██╗     ██╗      █████╗ ██████╗
+██╔════╝╚══██╔══╝██╔════╝██║     ██║     ██╔══██╗██╔══██╗
+███████╗   ██║   █████╗  ██║     ██║     ███████║██████╔╝
+╚════██║   ██║   ██╔══╝  ██║     ██║     ██╔══██║██╔══██╗
+███████║   ██║   ███████╗███████╗███████╗██║  ██║██║  ██║
+╚══════╝   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
+
+              BC250 THERMAL MONITOR
 ```
 
-ou outra licença de sua preferência.
+**ESP32-C3 + GC9A01 + CachyOS + USB Serial**
