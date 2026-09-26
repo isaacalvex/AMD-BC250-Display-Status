@@ -1,53 +1,158 @@
-# AMD BC250 Monitor Display (ESP32-C3 1.28 inch)
+# AMD BC250 Display Status
 
-Monitor de temperatura da AMD BC250 utilizando uma ESP32-C3 com display GC9A01 de 1,28".
+Display de status e temperatura para a **AMD BC250**, usando Linux/CachyOS para leitura dos sensores e um **ESP32-C3 + GC9A01 240x240** como interface visual.
 
-O sistema funciona em duas partes:
+Este é o repositório principal do projeto.
 
-1. A ESP32-C3 controla o display e recebe os dados pela USB.
-2. O CachyOS executa um serviço `systemd` que lê as temperaturas da CPU e GPU e envia os valores para a ESP32 a cada segundo.
+## Como funciona
 
-A comunicação é feita exclusivamente por USB/Serial.
+O Linux lê as temperaturas reais da CPU e GPU da AMD BC250. O script `stellar_monitor.py` envia os dados ao ESP32 pela USB Serial a **115200 baud**:
 
-**Fluxo:**
+```text
+CPU:46.6;GPU:44.0
+```
 
-`CachyOS` → `sensores CPU/GPU` → `Python` → `USB Serial` → `ESP32-C3` → `GC9A01`
+O firmware do ESP32 exibe essas informações no display circular. Enquanto ainda não houver uma leitura válida de CPU e GPU, o display permanece na tela de inicialização. Nenhuma temperatura fictícia é enviada.
 
-Enquanto o serviço do CachyOS não estiver enviando dados, a ESP32 permanece na tela de inicialização. A tela de temperatura só é exibida depois que dados válidos são recebidos.
+## Arquivos
 
----
+```text
+AMD-BC250-Display-Status/
+├── README.md
+├── setup.sh
+├── stellar_monitor.py
+└── stellar_monitor.ino
+```
 
-## 1. Hardware
+O arquivo `stellar_monitor.ino` deste repositório é o firmware principal do display ESP32.
 
-### Componentes
+## Hardware
 
 - AMD BC250
 - ESP32-C3
-- Display GC9A01 1,28" 240x240
-- Cabo USB para conexão entre o computador e a ESP32-C3
+- Display GC9A01 1.28"
+- Resolução 240x240
+- Comunicação USB Serial
 
-### Display
+## Arduino IDE
 
-Pinagem utilizada pela ESP32-C3:
+Instale:
 
-| Função | GPIO |
-|---|---:|
-| MOSI | 7 |
-| SCLK | 6 |
-| CS | 10 |
-| DC | 2 |
-| RST | -1 |
-| Backlight | 3 |
+- `esp32 by Espressif Systems`
+- `Arduino_GFX_Library`
+- `U8g2`
 
----
-
-## 2. Código da ESP32-C3
-
-O código da ESP32 é o arquivo `.ino` presente neste projeto.
-
-Exemplo de estrutura:
+Para o ESP32-C3, use uma configuração compatível com:
 
 ```text
-AMD-BC250-Monitor-Display/
-├── README.md
-└── AMD_BC250_Monitor_Display.ino
+Board: ESP32C3 Dev Module
+USB CDC On Boot: Enabled
+```
+
+### USB CDC On Boot
+
+**USB CDC On Boot precisa estar em Enabled** quando a comunicação com o Linux é feita pela USB nativa do ESP32-C3.
+
+Isso faz com que o ESP32 disponibilize a interface serial USB usada pelo `stellar_monitor.py`. No Linux, ela normalmente aparece em:
+
+```text
+/dev/ttyACM*
+```
+
+ou de forma persistente em:
+
+```text
+/dev/serial/by-id/
+```
+
+Se o firmware grava normalmente, mas o Linux não encontra o ESP32 depois da inicialização, verifique primeiro:
+
+```text
+USB CDC On Boot: Enabled
+```
+
+e reinicie a placa.
+
+## Instalação no CachyOS / Arch
+
+Execute:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/isaacalvex/AMD-BC250-Display-Status/main/setup.sh | bash
+```
+
+O instalador configura:
+
+- Python
+- PySerial
+- `lm_sensors`
+- permissão serial
+- grupo `uucp` no Arch/CachyOS
+- serviço systemd do usuário
+- inicialização automática do monitor
+
+Se o instalador adicionar seu usuário ao grupo `uucp`, encerre a sessão e entre novamente ou reinicie o computador.
+
+## Verificar sensores
+
+```bash
+sensors
+```
+
+Na AMD BC250, o monitor procura principalmente:
+
+```text
+Tctl:
+```
+
+para CPU e sensores `amdgpu` / `edge` / hwmon para GPU.
+
+## Serviço
+
+Status:
+
+```bash
+systemctl --user status stellar-monitor.service
+```
+
+Logs:
+
+```bash
+journalctl --user -u stellar-monitor.service -f
+```
+
+Reiniciar:
+
+```bash
+systemctl --user restart stellar-monitor.service
+```
+
+## Comunicação
+
+```text
+AMD BC250
+   |
+   v
+sensors / hwmon
+   |
+   v
+stellar_monitor.py
+   |
+   | CPU:xx.x;GPU:xx.x
+   | USB Serial - 115200 baud
+   v
+ESP32-C3
+   |
+   v
+GC9A01 240x240
+```
+
+O script procura primeiro `/dev/serial/by-id/*` e depois `/dev/ttyACM*` e `/dev/ttyUSB*`.
+
+## Repositório
+
+O desenvolvimento passa a ser mantido somente aqui:
+
+https://github.com/isaacalvex/AMD-BC250-Display-Status
+
+O repositório antigo `stellar-monitor` não deve mais ser usado como fonte principal para instalação ou atualizações.
