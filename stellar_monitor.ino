@@ -96,6 +96,7 @@ bool temperaturasRecebidas = false;
 bool downloadAtivo = false;
 String nomeDownload = "";
 int percentualDownload = 0;
+float percentualDownloadPreciso = 0.0f;
 float velocidadeDownloadMBs = 0.0f;
 unsigned long ultimoStatusDownload = 0;
 const unsigned long TIMEOUT_DOWNLOAD = 9000;
@@ -519,6 +520,7 @@ void processarPacoteDownload(const String &pacote) {
 
   if (!pacote.startsWith("DL:1;")) return;
 
+  int posPercentualPreciso = pacote.indexOf(";PCTF:");
   int posPercentual = pacote.indexOf(";PCT:");
   int posVelocidade = pacote.indexOf(";SPEED:");
   int posNome = pacote.indexOf(";NAME:");
@@ -543,6 +545,26 @@ void processarPacoteDownload(const String &pacote) {
   }
 
   int novoPercentual = pctTexto.toInt();
+  float novoPercentualPreciso = (float)novoPercentual;
+  // Pacote novo: DL:1;PCTF:8.37;PCT:8;SPEED:...;NAME:...
+  // Firmware antigo continua usando apenas PCT e ignora PCTF.
+  if (posPercentualPreciso >= 0 && posPercentualPreciso < posPercentual) {
+    String preciso = pacote.substring(posPercentualPreciso + 6, posPercentual);
+    preciso.trim();
+    bool vistoPonto = false;
+    if (preciso.isEmpty()) return;
+    for (unsigned int i = 0; i < preciso.length(); i++) {
+      char c = preciso[i];
+      if (c == '.' && !vistoPonto) {
+        vistoPonto = true;
+      } else if (!isDigit(c)) {
+        return;
+      }
+    }
+    novoPercentualPreciso = preciso.toFloat();
+    if (!isfinite(novoPercentualPreciso) ||
+        novoPercentualPreciso < 0.0f || novoPercentualPreciso > 100.0f) return;
+  }
   float novaVelocidade = velocidadeTexto.toFloat();
   if (novoPercentual < 0 || novoPercentual > 100 ||
       (novaVelocidade < 0 && !velocidadeIndisponivel) ||
@@ -554,6 +576,7 @@ void processarPacoteDownload(const String &pacote) {
   if (novoNome.length() > 140) novoNome.remove(140);
 
   percentualDownload = novoPercentual;
+  percentualDownloadPreciso = novoPercentualPreciso;
   velocidadeDownloadMBs = novaVelocidade;
   nomeDownload = novoNome;
   downloadAtivo = true;
@@ -1527,7 +1550,7 @@ void desenharDownload() {
   const int cx = 120;
   const int cy = 120;
   const int raio = 101;
-  const int totalPassos = 120;
+  const int totalPassos = 360;  // Mais pontos: anel proporcional e suave.
   const uint16_t corTrilha = 0x1927;
   const uint16_t corProgresso = 0x2EFF;
 
@@ -1536,14 +1559,24 @@ void desenharDownload() {
     float angulo = -1.57079633f + i * 6.28318531f / totalPassos;
     int x = cx + (int)roundf(cosf(angulo) * raio);
     int y = cy + (int)roundf(sinf(angulo) * raio);
-    canvas->fillCircle(x, y, 4, corTrilha);
+    canvas->fillCircle(x, y, 3, corTrilha);
   }
-  int passosAtivos = (percentualDownload * totalPassos + 50) / 100;
+  float passosPrecisos = percentualDownloadPreciso * totalPassos / 100.0f;
+  int passosAtivos = (int)floorf(passosPrecisos);
+  float restoPasso = passosPrecisos - passosAtivos;
   for (int i = 0; i < passosAtivos; ++i) {
     float angulo = -1.57079633f + i * 6.28318531f / totalPassos;
     int x = cx + (int)roundf(cosf(angulo) * raio);
     int y = cy + (int)roundf(sinf(angulo) * raio);
-    canvas->fillCircle(x, y, 4, corProgresso);
+    canvas->fillCircle(x, y, 3, corProgresso);
+  }
+  // Ponta proporcional entre dois pontos, sem arredondar a 1% inteiro.
+  if (restoPasso > 0.0f && passosAtivos < totalPassos) {
+    float angulo = -1.57079633f +
+                   passosAtivos * 6.28318531f / totalPassos;
+    int x = cx + (int)roundf(cosf(angulo) * raio);
+    int y = cy + (int)roundf(sinf(angulo) * raio);
+    canvas->fillCircle(x, y, restoPasso > 0.6f ? 3 : 2, corProgresso);
   }
 
   // Nome em uma linha: se ultrapassar 182px, corta o final.
@@ -1574,11 +1607,18 @@ void desenharDownload() {
   canvas->print(nomeExibido);
 
   // Porcentagem centralizada sempre na mesma linha.
-  String progressoTexto = String(percentualDownload) + "%";
+  String progressoTexto = String(percentualDownloadPreciso, 2) + "%";
   canvas->setFont(FONT_LARGE);
   canvas->setTextColor(corProgresso);
   canvas->getTextBounds(progressoTexto.c_str(), 0, 0,
                         &x1, &y1, &largura, &altura);
+  // Valor 99,99% cabe dentro do círculo; se a fonte ficar larga,
+  // manter a linha e o centro, diminuindo apenas a tipografia.
+  if (largura > 192) {
+    canvas->setFont(u8g2_font_logisoso32_tf);
+    canvas->getTextBounds(progressoTexto.c_str(), 0, 0,
+                          &x1, &y1, &largura, &altura);
+  }
   canvas->setCursor(cx - largura / 2 - x1, 151);
   canvas->print(progressoTexto);
 
