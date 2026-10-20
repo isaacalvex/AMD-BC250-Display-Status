@@ -98,6 +98,7 @@ String nomeDownload = "";
 int percentualDownload = 0;
 float percentualDownloadPreciso = 0.0f;
 float velocidadeDownloadMBs = 0.0f;
+bool velocidadeExibidaMbps = false; // UNIT:Mbps opcional via USB.
 unsigned long ultimoStatusDownload = 0;
 const unsigned long TIMEOUT_DOWNLOAD = 9000;
 
@@ -520,6 +521,7 @@ void processarPacoteDownload(const String &pacote) {
 
   if (!pacote.startsWith("DL:1;")) return;
 
+  int posUnidade = pacote.indexOf(";UNIT:");
   int posPercentualPreciso = pacote.indexOf(";PCTF:");
   int posPercentual = pacote.indexOf(";PCT:");
   int posVelocidade = pacote.indexOf(";SPEED:");
@@ -578,6 +580,13 @@ void processarPacoteDownload(const String &pacote) {
   percentualDownload = novoPercentual;
   percentualDownloadPreciso = novoPercentualPreciso;
   velocidadeDownloadMBs = novaVelocidade;
+  // UNIT vem antes de PCTF/PCT, preservando a leitura por firmwares
+  // anteriores. SPEED continua a vir em MB/s como valor de transporte.
+  // Exibicao em Mbps = megabytes/s * 8 (bits por byte).
+  velocidadeExibidaMbps = (
+    posUnidade >= 0 && posUnidade < posPercentual &&
+    pacote.substring(posUnidade + 6,
+      posPercentualPreciso > posUnidade ? posPercentualPreciso : posPercentual) == "Mbps");
   nomeDownload = novoNome;
   downloadAtivo = true;
   ultimoStatusDownload = millis();
@@ -1622,11 +1631,16 @@ void desenharDownload() {
   canvas->setCursor(cx - largura / 2 - x1, 151);
   canvas->print(progressoTexto);
 
-  // Velocidade do jogo em MB/s na linha inferior.
+  // Mesma unidade configurada na Steam para exibir bits/s.
+  // A fonte CEF envia bytes/s; o host converte para MB/s no SPEED,
+  // e a opcao UNIT:Mbps instrui o ESP32 a exibir 8x o valor.
+  const String unidade = velocidadeExibidaMbps ? "Mbps" : "MB/s";
+  float velocidadeVisual = velocidadeExibidaMbps
+    ? velocidadeDownloadMBs * 8.0f : velocidadeDownloadMBs;
   String velocidadeTexto = velocidadeDownloadMBs < 0
-    ? String("-- MB/s") : String(velocidadeDownloadMBs, 1);
+    ? String("-- ") + unidade : String(velocidadeVisual, 1);
   velocidadeTexto.replace('.', ',');
-  if (velocidadeDownloadMBs >= 0) velocidadeTexto += " MB/s";
+  if (velocidadeDownloadMBs >= 0) velocidadeTexto += " " + unidade;
   canvas->setFont(FONT_MEDIUM);
   canvas->setTextColor(WHITE);
   canvas->getTextBounds(velocidadeTexto.c_str(), 0, 0,
