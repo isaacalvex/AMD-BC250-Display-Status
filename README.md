@@ -170,3 +170,12 @@ DL:0
 O campo novo `PCTF` aceita porcentagem com duas casas e controla o anel com 360 pontos e número central. O campo antigo `PCT` continua sendo aceito se `PCTF` não existir. O protocolo não é exclusivo de nenhum jogo. Se `SPEED:-1`, aparece `-- MB/s`. O desenho continua a ser atualizado aproximadamente uma vez por segundo quando o host fornece leituras novas.
 
 Para obter essa precisão, **compile e grave este novo firmware na placa ESP32-C3**. Apenas atualizar o monitor Bazzite não muda o firmware já gravado. Pela interface gráfica do repositório companion, use a aba Firmware: o instalador recompila esta origem ao detectar hash alterado. Para conferir o recebimento do pacote, use **Diagnóstico → Testar tela de download no ESP32**, que envia 65,41% a 65,46% em seis segundos. A leitura real de MB/s e dos bytes vem do serviço CEF do host e não do ESP32.
+
+
+## Protocolo Steam: exibição de Mbps
+
+O host pode transmitir `DL:1;UNIT:Mbps;PCTF:37.81;PCT:38;SPEED:35.3;NAME:Jogo`. O campo `SPEED` mantém a velocidade em **MB/s** para compatibilidade com firmware antigo. Ao receber **`UNIT:Mbps`**, este firmware converte na tela por **8** e mostra **282,4 Mbps**, mantendo o anel de progresso e a porcentagem anterior sem alteração.
+
+Em mensagens legadas sem `UNIT:Mbps`, o display continua mostrando MB/s. Em caso de velocidade indisponível (`SPEED:-1`), mostra `-- Mbps` ou `-- MB/s` conforme o marcador. O marcador é opcional, posicionado antes de `PCTF`, e não muda os delimitadores existentes.
+
+Regrave o ESP32 com o código atualizado para alterar a unidade visível. O aplicativo Bazzite/CachyOS pode ser atualizado sem regravar o dispositivo, mas firmware antigo continuará mostrando MB/s.
