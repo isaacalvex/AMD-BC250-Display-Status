@@ -90,6 +90,16 @@ Arduino_Canvas *canvas = new Arduino_Canvas(
 float cpuTemp = 0.0;
 float gpuTemp = 0.0;
 
+// Download Steam (USB): DL:1;PCT:65;SPEED:28.4;NAME:Cyberpunk 2077
+// Encerrar ou retomar temperatura (USB): DL:0
+bool temperaturasRecebidas = false;
+bool downloadAtivo = false;
+String nomeDownload = "";
+int percentualDownload = 0;
+float velocidadeDownloadMBs = 0.0f;
+unsigned long ultimoStatusDownload = 0;
+const unsigned long TIMEOUT_DOWNLOAD = 9000;
+
 // ============================================================
 // ESTADO DOS DADOS
 // ============================================================
@@ -258,6 +268,8 @@ void desenharCometa(
 );
 
 void desenharInterface();
+void desenharDownload();
+void processarPacoteDownload(const String &pacote);
 
 void desenharCPU(
   float temperatura
@@ -496,6 +508,64 @@ void loop() {
 //
 // ============================================================
 
+
+void processarPacoteDownload(const String &pacote) {
+  if (pacote == "DL:0") {
+    downloadAtivo = false;
+    ultimoStatusDownload = 0;
+    if (!temperaturasRecebidas) dadosRecebidos = false;
+    return;
+  }
+
+  if (!pacote.startsWith("DL:1;")) return;
+
+  int posPercentual = pacote.indexOf(";PCT:");
+  int posVelocidade = pacote.indexOf(";SPEED:");
+  int posNome = pacote.indexOf(";NAME:");
+  if (posPercentual < 0 || posVelocidade <= posPercentual ||
+      posNome <= posVelocidade) return;
+
+  String pctTexto = pacote.substring(posPercentual + 5, posVelocidade);
+  String velocidadeTexto = pacote.substring(posVelocidade + 7, posNome);
+  pctTexto.trim();
+  velocidadeTexto.trim();
+  if (pctTexto.isEmpty() || velocidadeTexto.isEmpty()) return;
+
+  for (unsigned int i = 0; i < pctTexto.length(); i++) {
+    if (!isDigit(pctTexto[i])) return;
+  }
+  bool ponto = false;
+  for (unsigned int i = 0; i < velocidadeTexto.length(); i++) {
+    char c = velocidadeTexto[i];
+    if (c == '.' && !ponto) { ponto = true; continue; }
+    if (!isDigit(c)) return;
+  }
+
+  int novoPercentual = pctTexto.toInt();
+  float novaVelocidade = velocidadeTexto.toFloat();
+  if (novoPercentual < 0 || novoPercentual > 100 ||
+      novaVelocidade < 0 || novaVelocidade > 9999) return;
+
+  String novoNome = pacote.substring(posNome + 6);
+  novoNome.trim();
+  if (novoNome.isEmpty()) return;
+  if (novoNome.length() > 140) novoNome.remove(140);
+
+  percentualDownload = novoPercentual;
+  velocidadeDownloadMBs = novaVelocidade;
+  nomeDownload = novoNome;
+  downloadAtivo = true;
+  ultimoStatusDownload = millis();
+  ultimoDadoRecebido = millis();
+
+  bool primeiroPacote = !dadosRecebidos;
+  dadosRecebidos = true;
+  if (primeiroPacote) {
+    desenharInterface();
+    ultimaAtualizacao = millis();
+  }
+}
+
 void receberDados() {
 
   static String buffer = "";
@@ -519,6 +589,10 @@ void receberDados() {
       if (
         buffer.length() > 0
       ) {
+
+        if (buffer.startsWith("DL:")) {
+          processarPacoteDownload(buffer);
+        }
 
         // ======================================================
         // PROCURA CPU
@@ -583,6 +657,8 @@ void receberDados() {
 
             gpuTemp =
               novaGPU;
+
+            temperaturasRecebidas = true;
 
             // ==================================================
             // MARCA COMO CONECTADO
@@ -692,7 +768,7 @@ void receberDados() {
       // ========================================================
 
       if (
-        buffer.length() > 100
+        buffer.length() > 240
       ) {
 
         buffer = "";
@@ -1408,6 +1484,13 @@ void desenharCometa(
 // ============================================================
 
 void desenharInterface() {
+  if (downloadAtivo && millis() - ultimoStatusDownload > TIMEOUT_DOWNLOAD) {
+    downloadAtivo = false;
+  }
+  if (downloadAtivo) {
+    desenharDownload();
+    return;
+  }
 
   canvas->fillScreen(
     BLACK
