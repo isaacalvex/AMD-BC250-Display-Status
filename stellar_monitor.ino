@@ -1515,6 +1515,86 @@ void desenharInterface() {
 }
 
 // ============================================================
+// TELA DE DOWNLOAD — LAYOUT FIXO 240x240
+// Somente nome, porcentagem, velocidade e borda circular.
+// ============================================================
+
+void desenharDownload() {
+  canvas->fillScreen(BLACK);
+
+  const int cx = 120;
+  const int cy = 120;
+  const int raio = 101;
+  const int totalPassos = 120;
+  const uint16_t corTrilha = 0x1927;
+  const uint16_t corProgresso = 0x2EFF;
+
+  // Anel de fundo e progresso em sentido horário a partir do topo.
+  for (int i = 0; i < totalPassos; ++i) {
+    float angulo = -1.57079633f + i * 6.28318531f / totalPassos;
+    int x = cx + (int)roundf(cosf(angulo) * raio);
+    int y = cy + (int)roundf(sinf(angulo) * raio);
+    canvas->fillCircle(x, y, 4, corTrilha);
+  }
+  int passosAtivos = (percentualDownload * totalPassos + 50) / 100;
+  for (int i = 0; i < passosAtivos; ++i) {
+    float angulo = -1.57079633f + i * 6.28318531f / totalPassos;
+    int x = cx + (int)roundf(cosf(angulo) * raio);
+    int y = cy + (int)roundf(sinf(angulo) * raio);
+    canvas->fillCircle(x, y, 4, corProgresso);
+  }
+
+  // Nome em uma linha: se ultrapassar 182px, corta o final.
+  // Remove caracteres UTF-8 inteiros para não quebrar acentos.
+  canvas->setFont(FONT_MEDIUM);
+  canvas->setTextColor(WHITE);
+  String nomeVisivel = nomeDownload;
+  String sufixo = "";
+  int16_t x1, y1;
+  uint16_t largura, altura;
+  for (int tentativa = 0; tentativa < 150; ++tentativa) {
+    String candidato = nomeVisivel + sufixo;
+    canvas->getTextBounds(candidato.c_str(), 0, 0,
+                          &x1, &y1, &largura, &altura);
+    if (largura <= 182 || nomeVisivel.isEmpty()) break;
+    int inicioUltimo = nomeVisivel.length() - 1;
+    while (inicioUltimo > 0 &&
+           (((uint8_t)nomeVisivel[inicioUltimo] & 0xC0) == 0x80)) {
+      --inicioUltimo;
+    }
+    nomeVisivel.remove(inicioUltimo);
+    sufixo = "...";
+  }
+  String nomeExibido = nomeVisivel + sufixo;
+  canvas->getTextBounds(nomeExibido.c_str(), 0, 0,
+                        &x1, &y1, &largura, &altura);
+  canvas->setCursor(cx - largura / 2 - x1, 87);
+  canvas->print(nomeExibido);
+
+  // Porcentagem centralizada sempre na mesma linha.
+  String progressoTexto = String(percentualDownload) + "%";
+  canvas->setFont(FONT_LARGE);
+  canvas->setTextColor(corProgresso);
+  canvas->getTextBounds(progressoTexto.c_str(), 0, 0,
+                        &x1, &y1, &largura, &altura);
+  canvas->setCursor(cx - largura / 2 - x1, 151);
+  canvas->print(progressoTexto);
+
+  // Velocidade do jogo em MB/s na linha inferior.
+  String velocidadeTexto = String(velocidadeDownloadMBs, 1);
+  velocidadeTexto.replace('.', ',');
+  velocidadeTexto += " MB/s";
+  canvas->setFont(FONT_MEDIUM);
+  canvas->setTextColor(WHITE);
+  canvas->getTextBounds(velocidadeTexto.c_str(), 0, 0,
+                        &x1, &y1, &largura, &altura);
+  canvas->setCursor(cx - largura / 2 - x1, 185);
+  canvas->print(velocidadeTexto);
+
+  canvas->flush();
+}
+
+// ============================================================
 // CPU
 // ============================================================
 
