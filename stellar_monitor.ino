@@ -534,8 +534,9 @@ void processarPacoteDownload(const String &pacote) {
   for (unsigned int i = 0; i < pctTexto.length(); i++) {
     if (!isDigit(pctTexto[i])) return;
   }
+  bool velocidadeIndisponivel = (velocidadeTexto == "-1");
   bool ponto = false;
-  for (unsigned int i = 0; i < velocidadeTexto.length(); i++) {
+  for (unsigned int i = 0; i < velocidadeTexto.length() && !velocidadeIndisponivel; i++) {
     char c = velocidadeTexto[i];
     if (c == '.' && !ponto) { ponto = true; continue; }
     if (!isDigit(c)) return;
@@ -544,7 +545,8 @@ void processarPacoteDownload(const String &pacote) {
   int novoPercentual = pctTexto.toInt();
   float novaVelocidade = velocidadeTexto.toFloat();
   if (novoPercentual < 0 || novoPercentual > 100 ||
-      novaVelocidade < 0 || novaVelocidade > 9999) return;
+      (novaVelocidade < 0 && !velocidadeIndisponivel) ||
+      novaVelocidade > 9999) return;
 
   String novoNome = pacote.substring(posNome + 6);
   novoNome.trim();
@@ -1581,9 +1583,10 @@ void desenharDownload() {
   canvas->print(progressoTexto);
 
   // Velocidade do jogo em MB/s na linha inferior.
-  String velocidadeTexto = String(velocidadeDownloadMBs, 1);
+  String velocidadeTexto = velocidadeDownloadMBs < 0
+    ? String("-- MB/s") : String(velocidadeDownloadMBs, 1);
   velocidadeTexto.replace('.', ',');
-  velocidadeTexto += " MB/s";
+  if (velocidadeDownloadMBs >= 0) velocidadeTexto += " MB/s";
   canvas->setFont(FONT_MEDIUM);
   canvas->setTextColor(WHITE);
   canvas->getTextBounds(velocidadeTexto.c_str(), 0, 0,
