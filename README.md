@@ -156,3 +156,17 @@ O desenvolvimento passa a ser mantido somente aqui:
 https://github.com/isaacalvex/AMD-BC250-Display-Status
 
 O repositório antigo `stellar-monitor` não deve mais ser usado como fonte principal para instalação ou atualizações.
+
+
+## Exibição de progresso Steam com 0,01% (PCTF)
+
+O firmware acompanha o ciclo completo de cada tarefa Steam (download e instalação) com o pacote enviado pelo programa host:
+
+```text
+DL:1;PCTF:8.37;PCT:8;SPEED:28.4;NAME:Street Fighter 6
+DL:0
+```
+
+O campo novo `PCTF` aceita porcentagem com duas casas e controla o anel com 360 pontos e número central. O campo antigo `PCT` continua sendo aceito se `PCTF` não existir. O protocolo não é exclusivo de nenhum jogo. Se `SPEED:-1`, aparece `-- MB/s`. O desenho continua a ser atualizado aproximadamente uma vez por segundo quando o host fornece leituras novas.
+
+Para obter essa precisão, **compile e grave este novo firmware na placa ESP32-C3**. Apenas atualizar o monitor Bazzite não muda o firmware já gravado. Pela interface gráfica do repositório companion, use a aba Firmware: o instalador recompila esta origem ao detectar hash alterado. Para conferir o recebimento do pacote, use **Diagnóstico → Testar tela de download no ESP32**, que envia 65,41% a 65,46% em seis segundos. A leitura real de MB/s e dos bytes vem do serviço CEF do host e não do ESP32.
